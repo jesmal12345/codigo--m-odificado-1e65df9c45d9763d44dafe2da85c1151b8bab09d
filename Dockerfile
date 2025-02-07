@@ -18,4 +18,8 @@ COPY . .
 # Descargar modelo YOLOv8n (si no está incluido en el repo)
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "--workers", "4", "app:app"]
+# Exponemos el puerto 5000
+EXPOSE 5000
+
+# Comando por defecto para ejecutar la aplicación
+CMD gunicorn --bind 0.0.0.0:5000 --workers 4 app:app
