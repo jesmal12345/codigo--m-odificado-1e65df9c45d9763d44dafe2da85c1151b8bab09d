@@ -4,19 +4,27 @@ import cv2
 import numpy as np
 import os
 import sys
+import torch
 
 # Configurar variables de entorno para OpenCV
 os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
+
+# Configurar PyTorch para permitir la carga segura del modelo
+torch.serialization.add_safe_globals(['ultralytics.nn.tasks.DetectionModel'])
 
 app = Flask(__name__)
 CORS(app)
 
 try:
     from ultralytics import YOLO
-    # Cargar el modelo YOLOv8 y configurar parámetros
-    model = YOLO('yolov8n.pt')
+    # Cargar el modelo YOLOv8 con configuración específica
+    model = YOLO('yolov8n.pt', task='detect')
     model.conf = 0.5  # Umbral de confianza
     model.iou = 0.5   # Umbral IOU
+    
+    # Forzar la carga del modelo con weights_only=False
+    if not hasattr(model, 'model'):
+        model.model = torch.load('yolov8n.pt', weights_only=False)
 except Exception as e:
     print(f"Error al cargar YOLO: {e}")
     sys.exit(1)
