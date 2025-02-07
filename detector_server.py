@@ -80,5 +80,7 @@ def health_check():
     })
 
 if __name__ == '__main__':
+    # Cambiar el puerto por defecto a 5000 para coincidir con la configuración de ngrok
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port) 
+    # Asegurarse de que el servidor esté accesible desde cualquier dirección IP
+    app.run(host='0.0.0.0', port=port, debug=False) 

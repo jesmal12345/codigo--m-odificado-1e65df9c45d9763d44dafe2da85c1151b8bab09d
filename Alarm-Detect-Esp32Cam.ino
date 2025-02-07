@@ -407,7 +407,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         const formData = new FormData();
         formData.append('image', blob, 'image.jpg');
         
-        fetch('http://192.168.1.13:5000/detect', {
+        fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/detect', {
           method: 'POST',
           body: formData
         })
@@ -490,7 +490,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             fetch(location.origin+'/?detectCount=clock=1;stop');
             
             // Guardar la imagen
-            return fetch('http://192.168.1.13:5000/save_image', {
+            return fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/save_image', {
               method: 'POST',
               body: formData
             });
@@ -625,7 +625,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           const formData = new FormData();
           formData.append('image', blob, filename);
           
-          return fetch('http://192.168.1.13:5000/save_image', {
+          return fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/save_image', {
             method: 'POST',
             body: formData
           });
