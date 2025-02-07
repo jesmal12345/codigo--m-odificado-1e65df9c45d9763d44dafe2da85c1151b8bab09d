@@ -2,24 +2,20 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Instalar dependencias del sistema
+# Instalar dependencias del sistema (OpenCV y otras)
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar archivos necesarios
+# Copiar requirements e instalar
 COPY requirements.txt .
-COPY detector_server.py .
-
-# Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Descargar el modelo YOLOv8 durante la construcción
+# Copiar la aplicación y el modelo
+COPY . .
+
+# Descargar modelo YOLOv8n (si no está incluido en el repo)
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
 
-# Exponer el puerto
-EXPOSE 5000
-
-# Comando para ejecutar la aplicación
-CMD ["python", "detector_server.py"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "--workers", "4", "app:app"]
