@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: detector-service
+    env: docker
+    buildCommand: docker build -t detector-service .
+    startCommand: docker run -p $PORT:5000 detector-service
+    envVars:
+      - key: PORT
+        value: 5000
+    healthCheckPath: /health 
