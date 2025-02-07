@@ -2,15 +2,24 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cv2
 import numpy as np
-from ultralytics import YOLO
+import os
+import sys
+
+# Configurar variables de entorno para OpenCV
+os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
 
 app = Flask(__name__)
 CORS(app)
 
-# Cargar el modelo YOLOv8 y configurar parámetros
-model = YOLO('yolov8n.pt')
-model.conf = 0.5  # Umbral de confianza
-model.iou = 0.5   # Umbral IOU
+try:
+    from ultralytics import YOLO
+    # Cargar el modelo YOLOv8 y configurar parámetros
+    model = YOLO('yolov8n.pt')
+    model.conf = 0.5  # Umbral de confianza
+    model.iou = 0.5   # Umbral IOU
+except Exception as e:
+    print(f"Error al cargar YOLO: {e}")
+    sys.exit(1)
 
 @app.route('/detect', methods=['POST'])
 def detect_objects():
@@ -19,6 +28,12 @@ def detect_objects():
         file = request.files['image']
         nparr = np.frombuffer(file.read(), np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'No se pudo decodificar la imagen'
+            }), 400
         
         # Redimensionar la imagen para procesamiento más rápido
         img = cv2.resize(img, (600, 800))
@@ -49,5 +64,13 @@ def detect_objects():
             'message': str(e)
         }), 500
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'message': 'El servidor está funcionando correctamente'
+    })
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, threaded=True) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port) 
