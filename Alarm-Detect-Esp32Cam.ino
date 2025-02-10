@@ -269,21 +269,45 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <script src="https:\/\/ajax.googleapis.com/ajax/libs/jquery/1.8.0/jquery.min.js"></script>
   <style>
+    :root {
+      --primary-color: #2196F3;
+      --secondary-color: #00FFFF;
+      --bg-color: #f5f5f5;
+      --text-color: #333;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
     .stream-container {
       position: relative;
-      width: 640px;  // Tamaño fijo para VGA
+      width: 640px;
       height: 480px;
-      margin: 0 auto;
+      margin: 0 auto 20px;
       overflow: hidden;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      background: #000;
     }
+    
     #ShowImage {
       width: 100%;
-      height: auto;
-      display: block;
+      height: 100%;
       object-fit: contain;
     }
+    
     #canvas {
       position: absolute;
       left: 0;
@@ -292,57 +316,127 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       height: 100%;
       pointer-events: none;
     }
+    
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .control-group {
+      padding: 10px;
+    }
+    
+    .btn {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .btn:hover {
+      background: #1976D2;
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    
+    select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+    
+    #result, #captureStatus {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 5px;
+      background: white;
+    }
+    
+    .success {
+      color: #4CAF50;
+    }
+    
+    .error {
+      color: #f44336;
+    }
+    
+    @media (max-width: 768px) {
+      .stream-container {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4/3;
+      }
+      
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="stream-container">
-    <img id="ShowImage" src="">
-    <canvas id="canvas"></canvas>
-  </div>
+  <div class="container">
+    <div class="stream-container">
+      <img id="ShowImage" src="">
+      <canvas id="canvas"></canvas>
+    </div>
 
-  <br>
-  <table>
-  <tr>
-    <td><input type="button" id="restart" value="Restart"></td> 
-    <td><input type="button" id="getStill" value="Get Still"></td>
-    <td><input type="button" id="toggleStream" value="Start Stream"></td>
-    <td><input type="button" id="captureBtn" value="Capturar Imagen"></td>
-  </tr>
-  <tr>
-    <td>Resolution</td> 
-    <td colspan="2">
-      <select id="framesize">
-        <option value="UXGA">UXGA(1600x1200)</option>
-        <option value="SXGA">SXGA(1280x1024)</option>
-        <option value="XGA">XGA(1024x768)</option>
-        <option value="SVGA" selected="selected">SVGA(800x600)</option>
-        <option value="VGA">VGA(640x480)</option>
-        <option value="CIF">CIF(400x296)</option>
-        <option value="QVGA">QVGA(320x240)</option>
-        <option value="HQVGA">HQVGA(240x176)</option>
-        <option value="QQVGA">QQVGA(160x120)</option>
-      </select> 
-    </td>
-  </tr>
-  <tr>
-    <td>Flash</td>
-    <td colspan="2"><input type="range" id="flash" min="0" max="255" value="0"></td>
-  </tr>
-  <tr>
-    <td>Quality</td>
-    <td colspan="2"><input type="range" id="quality" min="10" max="63" value="10"></td>
-  </tr>
-  <tr>
-    <td>Brightness</td>
-    <td colspan="2"><input type="range" id="brightness" min="-2" max="2" value="0"></td>
-  </tr>
-  <tr>
-    <td>Contrast</td>
-    <td colspan="2"><input type="range" id="contrast" min="-2" max="2" value="0"></td>
-  </tr>
-  </table>
-  <div id="result"></div>
-  <div id="captureStatus" style="color: green;"></div>
+    <div class="controls">
+      <div class="control-group">
+        <button class="btn" id="restart">Restart</button>
+        <button class="btn" id="getStill">Get Still</button>
+        <button class="btn" id="toggleStream">Start Stream</button>
+        <button class="btn" id="captureBtn">Capturar Imagen</button>
+      </div>
+
+      <div class="control-group">
+        <label>Resolution</label>
+        <select id="framesize">
+          <option value="UXGA">UXGA(1600x1200)</option>
+          <option value="SXGA">SXGA(1280x1024)</option>
+          <option value="XGA">XGA(1024x768)</option>
+          <option value="SVGA" selected="selected">SVGA(800x600)</option>
+          <option value="VGA">VGA(640x480)</option>
+          <option value="CIF">CIF(400x296)</option>
+          <option value="QVGA">QVGA(320x240)</option>
+          <option value="HQVGA">HQVGA(240x176)</option>
+          <option value="QQVGA">QQVGA(160x120)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Flash</label>
+        <input type="range" id="flash" min="0" max="255" value="0">
+        
+        <label>Quality</label>
+        <input type="range" id="quality" min="10" max="63" value="10">
+        
+        <label>Brightness</label>
+        <input type="range" id="brightness" min="-2" max="2" value="0">
+        
+        <label>Contrast</label>
+        <input type="range" id="contrast" min="-2" max="2" value="0">
+      </div>
+    </div>
+
+    <div id="result"></div>
+    <div id="captureStatus"></div>
+  </div>
   
   <script>
     var getStill = document.getElementById('getStill');
@@ -371,55 +465,53 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     }
 
     ShowImage.onload = function() {
-      // Ajustar canvas al tamaño real de la imagen
       canvas.width = ShowImage.naturalWidth;
       canvas.height = ShowImage.naturalHeight;
-      
       ctx.drawImage(ShowImage, 0, 0);
 
       if(streaming) {
-        // Procesar detección solo cada 500ms
-        if(!window.lastDetection || Date.now() - window.lastDetection > 500) {
+        // Reducir la frecuencia de detección a 1 vez por segundo
+        if(!window.lastDetection || Date.now() - window.lastDetection > 1000) {
           window.lastDetection = Date.now();
           processDetection();
         }
-        // Solicitar siguiente frame
+        // Reducir el intervalo de actualización de frames
         streamTimer = setTimeout(() => {
           ShowImage.src = `${location.origin}/?getstill=1&t=${Date.now()}`;
-        }, 100);
+        }, 50); // Reducido de 100ms a 50ms para mayor fluidez
       }
     }
 
     function processDetection() {
-      // Obtener dimensiones originales de la imagen
-      const originalWidth = ShowImage.naturalWidth;
-      const originalHeight = ShowImage.naturalHeight;
-      
-      // Obtener dimensiones del canvas
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      
-      // Calcular factores de escala
-      const scaleX = canvasWidth / originalWidth;
-      const scaleY = canvasHeight / originalHeight;
-
+      // Optimizar la calidad de la imagen para el procesamiento
       canvas.toBlob(function(blob) {
         const formData = new FormData();
         formData.append('image', blob, 'image.jpg');
         
+        // Usar AbortController para cancelar peticiones pendientes
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
         fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/detect', {
           method: 'POST',
-          body: formData
+          body: formData,
+          signal: controller.signal
         })
         .then(response => response.json())
         .then(data => {
+          clearTimeout(timeoutId);
           if(data.status === 'success') {
-            // Pasar los factores de escala a drawDetections
-            drawDetections(data.detections, scaleX, scaleY);
+            drawDetections(data.detections, canvas.width/originalWidth, canvas.height/originalHeight);
           }
         })
-        .catch(console.error);
-      }, 'image/jpeg', 0.8);
+        .catch(error => {
+          if(error.name === 'AbortError') {
+            console.log('Fetch aborted');
+          } else {
+            console.error('Error:', error);
+          }
+        });
+      }, 'image/jpeg', 0.6); // Reducida calidad para mejor rendimiento
     }
 
     function drawDetections(detections, scaleX, scaleY) {
