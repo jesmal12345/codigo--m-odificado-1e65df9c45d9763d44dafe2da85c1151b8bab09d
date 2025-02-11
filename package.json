@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "axios": "latest",
+    "autoprefixer": "latest",
+    "tailwindcss": "latest",
+    "postcss": "latest"
+  }
+} 
