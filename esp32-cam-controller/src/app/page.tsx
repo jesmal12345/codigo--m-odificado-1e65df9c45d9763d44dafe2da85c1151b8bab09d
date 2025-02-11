@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 const ESP_URL = "http://192.168.1.11"; // Asegúrate que esta sea la IP de tu ESP32
@@ -12,14 +12,62 @@ export default function Home() {
   const [contrast, setContrast] = useState(0);
   const [imageUrl, setImageUrl] = useState(`${ESP_URL}/?getstill=1`);
   const [captureStatus, setCaptureStatus] = useState("");
-
-  let streamInterval: NodeJS.Timeout | null = null;
+  const [isLoading, setIsLoading] = useState(false);
+  const videoRef = useRef<HTMLImageElement>(null);
+  const streamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [streamUrl, setStreamUrl] = useState(`${ESP_URL}/?getstill=1`);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    return () => {
-      if (streamInterval) clearInterval(streamInterval);
+    if (!streaming) {
+      setStreamUrl(`${ESP_URL}/?getstill=1`);
+      if (streamTimeoutRef.current) {
+        clearTimeout(streamTimeoutRef.current);
+      }
+      return;
+    }
+
+    let isFrameLoading = false;
+
+    const updateFrame = async () => {
+      if (isFrameLoading) return;
+
+      try {
+        isFrameLoading = true;
+        const timestamp = Date.now();
+        const newUrl = `${ESP_URL}/?getstill=1&t=${timestamp}`;
+
+        const img = new Image();
+        img.src = newUrl;
+
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+
+        setStreamUrl(newUrl);
+        setError("");
+      } catch (err) {
+        console.error("Error en stream:", err);
+        setError("Error de conexión con la cámara");
+        setStreaming(false);
+      } finally {
+        isFrameLoading = false;
+      }
+
+      if (streaming) {
+        streamTimeoutRef.current = setTimeout(updateFrame, 100);
+      }
     };
-  }, []);
+
+    updateFrame();
+
+    return () => {
+      if (streamTimeoutRef.current) {
+        clearTimeout(streamTimeoutRef.current);
+      }
+    };
+  }, [streaming]);
 
   const handleFlash = async (value: number) => {
     try {
@@ -32,13 +80,6 @@ export default function Home() {
 
   const handleStream = () => {
     setStreaming(!streaming);
-    if (!streaming) {
-      streamInterval = setInterval(() => {
-        setImageUrl(`${ESP_URL}/?getstill=1&t=${Date.now()}`);
-      }, 100);
-    } else if (streamInterval) {
-      clearInterval(streamInterval);
-    }
   };
 
   const handleCapture = async () => {
@@ -75,10 +116,19 @@ export default function Home() {
           <div className="border-4 border-dashed border-gray-200 rounded-lg h-96">
             <div className="relative w-full h-full">
               <img
-                src={imageUrl}
+                src={streamUrl}
                 className="w-full h-full object-contain"
                 alt="ESP32-CAM Stream"
+                onError={() => {
+                  setError("Error al cargar la imagen");
+                  setStreaming(false);
+                }}
               />
+              {error && (
+                <div className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 text-center">
+                  {error}
+                </div>
+              )}
             </div>
           </div>
 
