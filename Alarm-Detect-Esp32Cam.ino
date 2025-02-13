@@ -95,7 +95,17 @@ void ExecuteCommand(WiFiClient& client) {
   }    
   else if (cmd == "flash") {
     ledcAttach(4, 5000, 8);  // pin, frecuencia, resolución
-    ledcWrite(4, P1.toInt());  
+    ledcWrite(4, P1.toInt());  // Establecer el valor del flash
+    
+    // Enviar respuesta con headers CORS
+    client.println("HTTP/1.1 200 OK");
+    client.println("Access-Control-Allow-Origin: *");
+    client.println("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    client.println("Access-Control-Allow-Headers: Content-Type");
+    client.println("Content-Type: application/json");
+    client.println("Connection: close");
+    client.println();
+    client.println("{\"status\":\"success\",\"value\":" + P1 + "}");
   }  
   else if (cmd == "framesize") { 
     sensor_t * s = esp_camera_sensor_get();  
@@ -189,11 +199,11 @@ void setup() {
 
   if(psramFound()){
     config.frame_size = FRAMESIZE_VGA;  // 640x480
-    config.jpeg_quality = 8;  // Reducido a 8 para mejor calidad
+    config.jpeg_quality = 10;  // Mejor calidad
     config.fb_count = 2;
   } else {
     config.frame_size = FRAMESIZE_VGA;
-    config.jpeg_quality = 8;  // Reducido a 8 para mejor calidad
+    config.jpeg_quality = 10;
     config.fb_count = 1;
   }
 
@@ -271,18 +281,23 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     :root {
-      --primary-color: #2196F3;
-      --secondary-color: #00FFFF;
-      --bg-color: #f5f5f5;
-      --text-color: #333;
+      --primary-color: #0A84FF;    /* iOS blue */
+      --secondary-color: #32D74B;  /* iOS green */
+      --danger-color: #FF453A;     /* iOS red */
+      --bg-color: #000000;         /* Pure black background */
+      --surface-color: #1C1C1E;    /* iOS dark gray */
+      --text-color: #FFFFFF;       /* White text */
+      --text-secondary: #98989F;   /* iOS secondary text */
+      --border-radius: 12px;       /* iOS style rounded corners */
     }
     
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       margin: 0;
       padding: 20px;
       background: var(--bg-color);
       color: var(--text-color);
+      min-height: 100vh;
     }
     
     .container {
@@ -297,9 +312,12 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       height: 480px;
       margin: 0 auto 20px;
       overflow: hidden;
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      background: #000;
+      border-radius: var(--border-radius);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+      background: var(--surface-color);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
     
     #ShowImage {
@@ -319,61 +337,145 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     
     .controls {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      grid-template-columns: 1fr 1fr;  /* Cambiado a 2 columnas */
+      grid-template-rows: auto auto;   /* 2 filas */
+      gap: 24px;
+      background: var(--surface-color);
+      padding: 24px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
     
     .control-group {
-      padding: 10px;
+      padding: 16px;
+      background: rgba(255,255,255,0.05);
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .control-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+      font-weight: 500;
     }
     
     .btn {
       background: var(--primary-color);
-      color: white;
+      color: var(--text-color);  /* Asegura que el texto sea blanco */
       border: none;
-      padding: 10px 20px;
-      border-radius: 5px;
+      padding: 12px 24px;
+      border-radius: var(--border-radius);
       cursor: pointer;
-      transition: background 0.3s;
+      transition: all 0.3s ease;
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 0.3px;
+      width: 100%;
+      margin-bottom: 12px;
     }
     
     .btn:hover {
-      background: #1976D2;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(10,132,255,0.3);
+    }
+    
+    .btn:active {
+      transform: translateY(1px);
+    }
+    
+    .btn.danger {
+      background: var(--danger-color);
+    }
+    
+    .btn.success {
+      background: var(--secondary-color);
+      color: var(--text-color);  /* Texto blanco para el botón de captura */
     }
     
     .btn:disabled {
-      background: #ccc;
+      background: #333;
+      cursor: not-allowed;
+      opacity: 0.7;
     }
     
     input[type="range"] {
       width: 100%;
       margin: 10px 0;
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    
+    input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      margin-top: -7px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      cursor: pointer;
     }
     
     select {
       width: 100%;
-      padding: 8px;
-      border-radius: 5px;
-      border: 1px solid #ddd;
+      padding: 12px;
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.05);
+      color: var(--text-color); /* Color del texto del select cuando está abierto */
+      font-size: 15px;
+      appearance: none;
+      cursor: pointer;
     }
     
-    #result, #captureStatus {
+    /* Estilo para las opciones del select */
+    select option {
+      background: var(--surface-color); /* Fondo oscuro para las opciones */
+      color: #000000; /* Texto negro para las opciones no seleccionadas */
+    }
+    
+    /* Estilo para la opción seleccionada */
+    select option:checked {
+      background: var(--primary-color);
+      color: var(--text-color); /* Texto blanco para la opción seleccionada */
+    }
+    
+    /* Estilo para cuando se pasa el mouse por encima de las opciones */
+    select option:hover {
+      background: var(--primary-color);
+      color: var(--text-color);
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+    
+    #captureStatus {
       margin-top: 20px;
-      padding: 10px;
-      border-radius: 5px;
-      background: white;
+      padding: 16px;
+      border-radius: var(--border-radius);
+      background: var(--surface-color);
+      border: 1px solid rgba(255,255,255,0.1);
     }
     
     .success {
-      color: #4CAF50;
+      color: var(--secondary-color);
     }
     
     .error {
-      color: #f44336;
+      color: var(--danger-color);
     }
     
     @media (max-width: 768px) {
@@ -384,8 +486,33 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       }
       
       .controls {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr;  /* Una columna en móviles */
+        gap: 16px;
+        padding: 16px;
       }
+      
+      .control-group {
+        padding: 12px;
+      }
+    }
+
+    /* Animaciones */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .container > * {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    /* Estilos para los valores numéricos */
+    .value-display {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--primary-color);
+      text-align: right;
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -397,44 +524,52 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     </div>
 
     <div class="controls">
+      <!-- Grupo 1: Botones de control -->
       <div class="control-group">
         <button class="btn" id="restart">Restart</button>
-        <button class="btn" id="getStill">Get Still</button>
-        <button class="btn" id="toggleStream">Start Stream</button>
-        <button class="btn" id="captureBtn">Capturar Imagen</button>
+        <button class="btn" id="toggleStream">Stop Stream</button>
+        <button class="btn success" id="captureBtn">Capture Image</button>
       </div>
 
+      <!-- Grupo 2: Resolución -->
       <div class="control-group">
         <label>Resolution</label>
         <select id="framesize">
-          <option value="UXGA">UXGA(1600x1200)</option>
-          <option value="SXGA">SXGA(1280x1024)</option>
-          <option value="XGA">XGA(1024x768)</option>
-          <option value="SVGA" selected="selected">SVGA(800x600)</option>
-          <option value="VGA">VGA(640x480)</option>
-          <option value="CIF">CIF(400x296)</option>
-          <option value="QVGA">QVGA(320x240)</option>
-          <option value="HQVGA">HQVGA(240x176)</option>
-          <option value="QQVGA">QQVGA(160x120)</option>
+          <option value="UXGA">UXGA (1600x1200)</option>
+          <option value="SXGA">SXGA (1280x1024)</option>
+          <option value="XGA">XGA (1024x768)</option>
+          <option value="SVGA" selected="selected">SVGA (800x600)</option>
+          <option value="VGA">VGA (640x480)</option>
+          <option value="CIF">CIF (400x296)</option>
+          <option value="QVGA">QVGA (320x240)</option>
+          <option value="HQVGA">HQVGA (240x176)</option>
+          <option value="QQVGA">QQVGA (160x120)</option>
         </select>
       </div>
 
+      <!-- Grupo 3: Flash y Quality -->
       <div class="control-group">
         <label>Flash</label>
         <input type="range" id="flash" min="0" max="255" value="0">
+        <div class="value-display" id="flashValue">0</div>
         
         <label>Quality</label>
         <input type="range" id="quality" min="10" max="63" value="10">
-        
+        <div class="value-display" id="qualityValue">10</div>
+      </div>
+
+      <!-- Grupo 4: Brightness y Contrast -->
+      <div class="control-group">
         <label>Brightness</label>
         <input type="range" id="brightness" min="-2" max="2" value="0">
+        <div class="value-display" id="brightnessValue">0</div>
         
         <label>Contrast</label>
         <input type="range" id="contrast" min="-2" max="2" value="0">
+        <div class="value-display" id="contrastValue">0</div>
       </div>
     </div>
 
-    <div id="result"></div>
     <div id="captureStatus"></div>
   </div>
   
@@ -443,7 +578,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     var ShowImage = document.getElementById('ShowImage');
     var canvas = document.getElementById('canvas');
     var ctx = canvas.getContext('2d');
-    var result = document.getElementById('result');
     var framesize = document.getElementById('framesize');
     var flash = document.getElementById('flash');
     var quality = document.getElementById('quality');
@@ -452,6 +586,11 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     var toggleStream = document.getElementById('toggleStream');
     var streaming = false;
     var streamTimer;
+    
+    const flashValue = document.getElementById('flashValue');
+    const qualityValue = document.getElementById('qualityValue');
+    const brightnessValue = document.getElementById('brightnessValue');
+    const contrastValue = document.getElementById('contrastValue');
     
     function startStream() {
       if(streaming) return;
@@ -470,93 +609,106 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       ctx.drawImage(ShowImage, 0, 0);
 
       if(streaming) {
-        // Reducir la frecuencia de detección a 1 vez por segundo
-        if(!window.lastDetection || Date.now() - window.lastDetection > 1000) {
-          window.lastDetection = Date.now();
-          processDetection();
-        }
+        // Eliminar el límite de frecuencia de detección
+        processDetection();
+        
         // Reducir el intervalo de actualización de frames
         streamTimer = setTimeout(() => {
           ShowImage.src = `${location.origin}/?getstill=1&t=${Date.now()}`;
-        }, 50); // Reducido de 100ms a 50ms para mayor fluidez
+        }, 100); // Ajustado a 100ms para mejor balance
       }
     }
 
     function processDetection() {
-      // Optimizar la calidad de la imagen para el procesamiento
+      const originalWidth = ShowImage.naturalWidth;
+      const originalHeight = ShowImage.naturalHeight;
+      
       canvas.toBlob(function(blob) {
         const formData = new FormData();
         formData.append('image', blob, 'image.jpg');
         
-        // Usar AbortController para cancelar peticiones pendientes
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
-        fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/detect', {
+        fetch('https://optimal-stirring-viper.ngrok-free.app/detect', {
           method: 'POST',
-          body: formData,
-          signal: controller.signal
+          body: formData
         })
         .then(response => response.json())
         .then(data => {
-          clearTimeout(timeoutId);
           if(data.status === 'success') {
-            drawDetections(data.detections, canvas.width/originalWidth, canvas.height/originalHeight);
+            drawDetections(data.detections, 1, 1); // Usar escala 1:1
           }
         })
         .catch(error => {
-          if(error.name === 'AbortError') {
-            console.log('Fetch aborted');
-          } else {
-            console.error('Error:', error);
-          }
+          console.error('Error:', error);
         });
-      }, 'image/jpeg', 0.6); // Reducida calidad para mejor rendimiento
+      }, 'image/jpeg', 0.8); // Aumentar calidad
     }
 
     function drawDetections(detections, scaleX, scaleY) {
+      // Limpiar el canvas y redibujar la imagen
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(ShowImage, 0, 0);
       
       // Variable para detectar si hay reloj
       let clockDetected = false;
+      const COOLDOWN_TIME = 8000;
       
-      // Variable para el cooldown
-      const COOLDOWN_TIME = 8000; // 8 segundos en milisegundos
-      
-      // Verificar si estamos en cooldown
       if(window.lastActionTime && Date.now() - window.lastActionTime < COOLDOWN_TIME) {
-        return; // Si estamos en cooldown, no hacer nada
+        return;
       }
       
       detections.forEach(det => {
         const [x1, y1, x2, y2] = det.bbox;
-        // Escalar las coordenadas al tamaño actual del canvas
-        const scaledX1 = x1 * scaleX;
-        const scaledY1 = y1 * scaleY;
-        const scaledX2 = x2 * scaleX;
-        const scaledY2 = y2 * scaleY;
-        const label = `${det.class} ${(det.confidence*100).toFixed(1)}%`;
+        
+        // Calcular dimensiones precisas
+        const scaledX1 = Math.round(Number(x1) * scaleX);
+        const scaledY1 = Math.round(Number(y1) * scaleY);
+        const scaledWidth = Math.round((Number(x2) - Number(x1)) * scaleX);
+        const scaledHeight = Math.round((Number(y2) - Number(y1)) * scaleY);
+        
+        // Formatear etiqueta con precisión de 1 decimal
+        const confidence = (det.confidence * 100).toFixed(1);
+        const label = `${det.class} ${confidence}%`;
+        
+        // Estilo del bounding box
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#00FFFF';
+        ctx.strokeRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+        
+        // Agregar fondo semitransparente al bbox
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+        ctx.fillRect(scaledX1, scaledY1, scaledWidth, scaledHeight);
+        
+        // Configurar estilo del texto
+        ctx.font = 'bold 16px Arial';
+        const textMetrics = ctx.measureText(label);
+        const textWidth = textMetrics.width;
+        const textHeight = 20;
+        const padding = 4;
+        
+        // Dibujar fondo del texto
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+          scaledX1, 
+          scaledY1 > textHeight ? scaledY1 - textHeight : scaledY1,
+          textWidth + (padding * 2),
+          textHeight
+        );
+        
+        // Dibujar texto
+        ctx.fillStyle = '#00FFFF';
+        ctx.fillText(
+          label,
+          scaledX1 + padding,
+          scaledY1 > textHeight ? scaledY1 - 5 : scaledY1 + 15
+        );
         
         // Verificar si es un reloj
         if(det.class.toLowerCase() === 'clock') {
           clockDetected = true;
         }
-        
-        ctx.strokeStyle = '#00FFFF';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(scaledX1, scaledY1, scaledX2-scaledX1, scaledY2-scaledY1);
-        
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.font = '16px Arial';
-        const textWidth = ctx.measureText(label).width;
-        ctx.fillRect(scaledX1, scaledY1 > 20 ? scaledY1 - 20 : scaledY1, textWidth + 4, 20);
-        
-        ctx.fillStyle = '#00FFFF';
-        ctx.fillText(label, scaledX1 + 2, scaledY1 > 20 ? scaledY1 - 5 : scaledY1 + 15);
       });
       
-      // Si se detectó un reloj y no estamos en cooldown
+      // Código para manejar la detección del reloj
       if(clockDetected && (!window.lastActionTime || Date.now() - window.lastActionTime >= COOLDOWN_TIME)) {
         window.lastActionTime = Date.now(); // Establecer tiempo de última acción
         
@@ -582,7 +734,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             fetch(location.origin+'/?detectCount=clock=1;stop');
             
             // Guardar la imagen
-            return fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/save_image', {
+            return fetch('https://optimal-stirring-viper.ngrok-free.app/save_image', {
               method: 'POST',
               body: formData
             });
@@ -590,17 +742,32 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           .then(response => response.json())
           .then(data => {
             if(data.success) {
-              result.innerHTML = `<span style="color: green;">Reloj detectado - Imagen guardada como: ${data.filename}</span>`;
+              // Mostrar mensaje en el captureStatus en lugar de result
+              captureStatus.innerHTML = `<span style="color: green;">Reloj detectado - Imagen guardada como: ${data.filename}</span>`;
               
-              // Apagar flash después de 4 segundos
-              setTimeout(() => {
-                fetch(location.origin+'/?flash=0;stop');
-              }, COOLDOWN_TIME);
+              // Apagar flash inmediatamente después de guardar la imagen
+              fetch(location.origin+'/?flash=0;stop')
+                .then(() => {
+                  console.log('Flash apagado después de la detección');
+                })
+                .catch(error => {
+                  console.error('Error al apagar el flash:', error);
+                });
             }
           })
           .catch(error => {
             console.error('Error:', error);
-            result.innerHTML = `<span style="color: red;">Error en captura automática: ${error.message}</span>`;
+            // Mostrar error en el captureStatus
+            captureStatus.innerHTML = `<span style="color: red;">Error en captura automática: ${error.message}</span>`;
+            
+            // Asegurarse de apagar el flash incluso si hay error
+            fetch(location.origin+'/?flash=0;stop')
+              .then(() => {
+                console.log('Flash apagado después de error');
+              })
+              .catch(err => {
+                console.error('Error al apagar el flash:', err);
+              });
           });
       }
     }
@@ -667,20 +834,28 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         });
     }
     
-    flash.onchange = function (event) {
-      fetch(location.origin+'/?flash='+this.value+';stop');
+    flash.onchange = function(event) {
+      const value = this.value;
+      flashValue.textContent = value;
+      fetch(location.origin+'/?flash='+value+';stop');
     }
     
-    quality.onchange = function (event) {
-      fetch(document.location.origin+'/?quality='+this.value+';stop');
+    quality.onchange = function(event) {
+      const value = this.value;
+      qualityValue.textContent = value;
+      fetch(document.location.origin+'/?quality='+value+';stop');
     }
     
-    brightness.onchange = function (event) {
-      fetch(document.location.origin+'/?brightness='+this.value+';stop');
+    brightness.onchange = function(event) {
+      const value = this.value;
+      brightnessValue.textContent = value;
+      fetch(document.location.origin+'/?brightness='+value+';stop');
     }
     
-    contrast.onchange = function (event) {
-      fetch(document.location.origin+'/?contrast='+this.value+';stop');
+    contrast.onchange = function(event) {
+      const value = this.value;
+      contrastValue.textContent = value;
+      fetch(document.location.origin+'/?contrast='+value+';stop');
     }
     
     restart.onclick = function (event) {
@@ -717,7 +892,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           const formData = new FormData();
           formData.append('image', blob, filename);
           
-          return fetch('https://517c-2806-263-c485-1ded-453d-c23d-69c9-1474.ngrok-free.app/save_image', {
+          return fetch('https://optimal-stirring-viper.ngrok-free.app/save_image', {
             method: 'POST',
             body: formData
           });
@@ -774,6 +949,9 @@ void loop() {
               }
 
               client.println("HTTP/1.1 200 OK");
+              client.println("Access-Control-Allow-Origin: *");
+              client.println("Access-Control-Allow-Methods: GET");
+              client.println("Access-Control-Allow-Headers: Content-Type");
               client.println("Content-Type: image/jpeg");
               client.println("Content-Length: " + String(fb->len));             
               client.println("Connection: close");
