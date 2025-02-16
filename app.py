@@ -6,6 +6,7 @@ import os
 import sys
 import torch
 from datetime import datetime
+from dotenv import load_dotenv
 
 # Configurar variables de entorno para OpenCV
 os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
@@ -36,6 +37,8 @@ CAPTURE_FOLDER = "captured_images"
 # Asegurarse de que la carpeta existe
 if not os.path.exists(CAPTURE_FOLDER):
     os.makedirs(CAPTURE_FOLDER)
+
+load_dotenv()  # Cargar variables de entorno desde .env
 
 @app.route('/detect', methods=['POST'])
 def detect_objects():
@@ -146,7 +149,7 @@ def save_image():
         }), 500
 
 if __name__ == '__main__':
-    # Cambiar el puerto por defecto a 5000 para coincidir con la configuración de ngrok
-    port = int(os.environ.get('PORT', 5000))
+    # Usar el puerto desde las variables de entorno
+    port = int(os.environ.get('PORT', 10000))
     # Asegurarse de que el servidor esté accesible desde cualquier dirección IP
     app.run(host='0.0.0.0', port=port, debug=False) 
