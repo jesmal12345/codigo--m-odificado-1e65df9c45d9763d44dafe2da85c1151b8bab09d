@@ -34,6 +34,13 @@ byte ReceiveState = 0, cmdState = 1, strState = 1, questionstate = 0, equalstate
 
 WiFiServer server(80);
 
+// Agregar estas definiciones después de las constantes de WiFi
+IPAddress local_IP(192, 168, 1, 184); // IP estática deseada
+IPAddress gateway(192, 168, 1, 1);    // Gateway de tu red
+IPAddress subnet(255, 255, 255, 0);   // Máscara de subred
+IPAddress primaryDNS(8, 8, 8, 8);     // DNS opcional (Google)
+IPAddress secondaryDNS(8, 8, 4, 4);   // DNS secundario opcional
+
 void ExecuteCommand(WiFiClient& client) {
   if (cmd != "getstill") {
     Serial.println("cmd= " + cmd + " ,P1= " + P1 + " ,P2= " + P2 + " ,P3= " + P3 + " ,P4= " + P4 + " ,P5= " + P5 + " ,P6= " + P6 + " ,P7= " + P7 + " ,P8= " + P8 + " ,P9= " + P9);
@@ -248,6 +255,12 @@ void setup() {
   ledcAttach(4, 5000, 8);  // pin, frecuencia, resolución
 
   WiFi.mode(WIFI_AP_STA);
+  
+  // Configurar IP estática antes de conectar
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+    Serial.println("Error en configuración IP estática");
+  }
+  
   WiFi.begin(ssid, password);    
 
   Serial.print("Connecting to ");
@@ -260,7 +273,7 @@ void setup() {
   } 
 
   if (WiFi.status() == WL_CONNECTED) {    
-    Serial.println("\nSTAIP address: ");
+    Serial.println("\nIP address configurada: ");
     Serial.println(WiFi.localIP());  
 
     for (int i = 0; i < 5; i++) {   
