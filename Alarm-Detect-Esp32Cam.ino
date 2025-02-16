@@ -4,8 +4,8 @@
 #include "soc/soc.h"            
 #include "soc/rtc_cntl_reg.h"   
 
-const char* ssid = "Megacable_2.4G_454A";
-const char* password = "pizzadepeperoni123";
+const char* ssid = "iPhone de Jesús Manuel";
+const char* password = "12345678";
 int pulse = 14;
 int head = 1;
 
