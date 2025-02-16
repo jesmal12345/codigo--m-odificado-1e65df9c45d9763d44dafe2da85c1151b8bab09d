@@ -51,8 +51,6 @@ void ExecuteCommand(WiFiClient& client) {
     } 
     if (cmd == "detectCount" && P1 == "clock" && P2 == "1") {
       digitalWrite(pulse, 1);  // Activar buzzer
-      delay(3000);  // Mantener por 3 segundos
-      digitalWrite(pulse, 0);  // Apagar buzzer
       
       // Capturar imagen cuando se activa el buzzer
       camera_fb_t * fb = esp_camera_fb_get();
@@ -66,6 +64,9 @@ void ExecuteCommand(WiFiClient& client) {
         client.write(fb->buf, fb->len);
         esp_camera_fb_return(fb);
       }
+      
+      delay(3000);  // Mantener buzzer por 3 segundos
+      digitalWrite(pulse, 0);  // Apagar buzzer
     }
   }
 
@@ -225,19 +226,19 @@ void setup() {
 
   sensor_t * s = esp_camera_sensor_get();
   s->set_framesize(s, FRAMESIZE_CIF);
-  s->set_quality(s, 12);           // Ajustar calidad
-  s->set_brightness(s, 1);
-  s->set_contrast(s, 0);
-  s->set_saturation(s, 0);
+  s->set_quality(s, 12);           
+  s->set_brightness(s, 2);         // Aumentar brillo de 1 a 2
+  s->set_contrast(s, 1);          // Aumentar contraste de 0 a 1
+  s->set_saturation(s, 1);        // Aumentar saturación de 0 a 1
   s->set_special_effect(s, 0);
   s->set_whitebal(s, 1);
   s->set_awb_gain(s, 1);
   s->set_wb_mode(s, 0);
   s->set_exposure_ctrl(s, 1);
-  s->set_aec2(s, 0);              // Deshabilitar AEC2
+  s->set_aec2(s, 1);              // Habilitar AEC2 para mejor exposición
   s->set_gain_ctrl(s, 1);
-  s->set_agc_gain(s, 0);          // Reducir ganancia
-  s->set_gainceiling(s, GAINCEILING_2X);
+  s->set_agc_gain(s, 2);          // Aumentar ganancia para mejor visibilidad
+  s->set_gainceiling(s, GAINCEILING_4X); // Aumentar el límite de ganancia
   s->set_bpc(s, 0);               // Deshabilitar corrección de píxeles
   s->set_wpc(s, 0);               // Deshabilitar corrección de blancos
   s->set_raw_gma(s, 1);
@@ -333,12 +334,14 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       border: 1px solid rgba(255,255,255,0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
+      transition: all 0.3s ease;
     }
     
     #ShowImage {
       width: 100%;
       height: 100%;
       object-fit: contain;
+      display: block;
     }
     
     #canvas {
@@ -529,11 +532,103 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       text-align: right;
       margin-top: 8px;
     }
+
+    .fullscreen {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      background: black !important;
+      border: none !important;
+      overflow: hidden !important;
+    }
+
+    .fullscreen #ShowImage {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+      margin: 0 !important;
+    }
+
+    .fullscreen #canvas {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+    }
+
+    .fullscreen-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      z-index: 1001;
+      padding: 0;
+    }
+
+    .fullscreen .fullscreen-btn {
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10000;
+    }
+
+    /* Agregar el estilo CSS para el botón de salida */
+    .exit-fullscreen-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255, 69, 58, 0.7);  /* iOS red con transparencia */
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;  /* Oculto por defecto */
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      z-index: 10001;
+      transition: all 0.3s ease;
+    }
+
+    .fullscreen .exit-fullscreen-btn {
+      display: flex;  /* Se muestra cuando está en fullscreen */
+    }
+
+    .exit-fullscreen-btn:hover {
+      background: rgba(255, 69, 58, 0.9);
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="stream-container">
+      <button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
+      <button class="exit-fullscreen-btn" id="exitFullscreenBtn">×</button>
       <img id="ShowImage" src="">
       <canvas id="canvas"></canvas>
     </div>
@@ -612,13 +707,21 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       if(streamTimer) clearTimeout(streamTimer);
     }
 
+    let frameCounter = 0;
+    const DETECTION_INTERVAL = 3; // Procesar cada 3 frames
+
     ShowImage.onload = function() {
       canvas.width = ShowImage.naturalWidth;
       canvas.height = ShowImage.naturalHeight;
       ctx.drawImage(ShowImage, 0, 0);
 
+      frameCounter++;
+      if (frameCounter >= DETECTION_INTERVAL) {
+        processDetection();
+        frameCounter = 0;
+      }
+
       if(streaming) {
-        // Usar requestAnimationFrame en lugar de setTimeout
         requestAnimationFrame(() => {
           ShowImage.src = `${location.origin}/?getstill=1&t=${Date.now()}`;
         });
@@ -964,6 +1067,117 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
     }
 
     updateFPSCounter();
+
+    var streamContainer = document.querySelector('.stream-container');
+    var fullscreenBtn = document.getElementById('fullscreenBtn');
+    var lastClick = 0;
+
+    // Agregar el manejador de doble clic al contenedor
+    streamContainer.addEventListener('dblclick', function() {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+        streamContainer.classList.remove('fullscreen');
+      } else {
+        if (streamContainer.requestFullscreen) {
+          streamContainer.requestFullscreen();
+        } else if (streamContainer.webkitRequestFullscreen) {
+          streamContainer.webkitRequestFullscreen();
+        } else if (streamContainer.msRequestFullscreen) {
+          streamContainer.msRequestFullscreen();
+        }
+        streamContainer.classList.add('fullscreen');
+      }
+    });
+
+    fullscreenBtn.onclick = function() {
+      if (!document.fullscreenElement) {
+        if (streamContainer.requestFullscreen) {
+          streamContainer.requestFullscreen();
+        } else if (streamContainer.webkitRequestFullscreen) {
+          streamContainer.webkitRequestFullscreen();
+        } else if (streamContainer.msRequestFullscreen) {
+          streamContainer.msRequestFullscreen();
+        }
+        streamContainer.classList.add('fullscreen');
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+        streamContainer.classList.remove('fullscreen');
+      }
+    }
+
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        streamContainer.classList.remove('fullscreen');
+      }
+    });
+
+    var exitFullscreenBtn = document.getElementById('exitFullscreenBtn');
+
+    exitFullscreenBtn.onclick = function() {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      streamContainer.classList.remove('fullscreen');
+    };
+  </script>
+</body>
+</html>
+)rawliteral";
+
+static const char PROGMEM STREAM_HTML[] = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ESP32-CAM Stream</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #000;
+    }
+    img {
+      max-width: 100%;
+      max-height: 100vh;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <img id="stream" src="">
+  <script>
+    var img = document.getElementById('stream');
+    function updateImage() {
+      img.src = window.location.origin + '/?getstill=1&t=' + new Date().getTime();
+    }
+    img.onload = function() {
+      setTimeout(updateImage, 50);
+    }
+    img.onerror = function() {
+      setTimeout(updateImage, 500);
+    }
+    updateImage();
   </script>
 </body>
 </html>
@@ -1022,6 +1236,7 @@ void loop() {
               esp_camera_fb_return(fb);
             }
             else {
+              // Interfaz web principal
               client.println("HTTP/1.1 200 OK");
               client.println("Content-Type: text/html; charset=utf-8");
               client.println("Connection: close");
