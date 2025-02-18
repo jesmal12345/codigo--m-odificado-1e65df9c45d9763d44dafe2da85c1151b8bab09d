@@ -4,8 +4,14 @@
 #include "soc/soc.h"            
 #include "soc/rtc_cntl_reg.h"   
 
+// Configuración WiFi original como respaldo
 const char* ssid = "Megacable_2.4G_454A";
 const char* password = "pizzadepeperoni123";
+
+// Nueva configuración WiFi principal
+const char* ssid_iphone = "iPhone de Jesús Manuel";
+const char* password_iphone = "12345678";
+
 int pulse = 14;
 int head = 1;
 
@@ -34,12 +40,19 @@ byte ReceiveState = 0, cmdState = 1, strState = 1, questionstate = 0, equalstate
 
 WiFiServer server(80);
 
-// Agregar estas definiciones después de las constantes de WiFi
-IPAddress local_IP(192, 168, 1, 184); // IP estática deseada
-IPAddress gateway(192, 168, 1, 1);    // Gateway de tu red
-IPAddress subnet(255, 255, 255, 0);   // Máscara de subred
-IPAddress primaryDNS(8, 8, 8, 8);     // DNS opcional (Google)
-IPAddress secondaryDNS(8, 8, 4, 4);   // DNS secundario opcional
+// Configuración IP para red Megacable
+IPAddress local_IP(192, 168, 1, 184);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress primaryDNS(8, 8, 8, 8);
+IPAddress secondaryDNS(8, 8, 4, 4);
+
+// Configuración IP para red iPhone
+IPAddress local_IP_iphone(172, 20, 10, 10);    // Cambiado a .10 para estar en el rango seguro
+IPAddress gateway_iphone(172, 20, 10, 1);      // Gateway del iPhone
+IPAddress subnet_iphone(255, 255, 255, 240);   // Máscara exacta del iPhone
+IPAddress primaryDNS_iphone(8, 8, 8, 8);
+IPAddress secondaryDNS_iphone(8, 8, 4, 4);
 
 void ExecuteCommand(WiFiClient& client) {
   if (cmd != "getstill") {
@@ -256,38 +269,83 @@ void setup() {
   ledcAttach(4, 5000, 8);  // pin, frecuencia, resolución
 
   WiFi.mode(WIFI_AP_STA);
+  WiFi.disconnect(true);  // Desconectar cualquier conexión previa
+  delay(1000);
+
+  // Intentar conectar al iPhone primero
+  Serial.println("Intentando conectar a red iPhone...");
   
-  // Configurar IP estática antes de conectar
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("Error en configuración IP estática");
+  // Limpiar configuración WiFi anterior
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  delay(100);
+  
+  // Configurar IP estática para iPhone
+  if (!WiFi.config(local_IP_iphone, gateway_iphone, subnet_iphone, primaryDNS_iphone, secondaryDNS_iphone)) {
+    Serial.println("Error en configuración IP estática iPhone");
   }
   
-  WiFi.begin(ssid, password);    
+  WiFi.begin(ssid_iphone, password_iphone);    
 
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.print("Conectando a ");
+  Serial.println(ssid_iphone);
 
-  long int StartTime = millis();
-  while (WiFi.status() != WL_CONNECTED) {
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // 10 segundos máximo
     delay(500);
-    if ((StartTime + 10000) < millis()) break;   
-  } 
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("\nFallo conexión a iPhone, intentando red de respaldo");
+    
+    // Limpiar configuración WiFi anterior
+    WiFi.disconnect(true);
+    delay(1000);
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    delay(100);
+    
+    // Configurar IP estática para Megacable
+    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
+      Serial.println("Error en configuración IP estática Megacable");
+    }
+    
+    WiFi.begin(ssid, password);
+    Serial.println("Conectando a Megacable...");
+    
+    attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+  }
 
   if (WiFi.status() == WL_CONNECTED) {    
-    Serial.println("\nIP address configurada: ");
-    Serial.println(WiFi.localIP());  
-
+    Serial.println("\nConexión exitosa!");
+    Serial.print("IP configurada: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("Máscara de subred: ");
+    Serial.println(WiFi.subnetMask());
+    Serial.print("Gateway: ");
+    Serial.println(WiFi.gatewayIP());
+    
+    // Parpadear LED para indicar conexión exitosa
     for (int i = 0; i < 5; i++) {   
       ledcWrite(4, 10);
       delay(200);
       ledcWrite(4, 0);
       delay(200);    
     }         
+  } else {
+    Serial.println("No se pudo conectar a ninguna red");
+    ESP.restart();  // Reiniciar si no se pudo conectar
   }
 
   pinMode(4, OUTPUT);
   digitalWrite(4, LOW);  
-  server.begin(); 
+  server.begin();
+  Serial.println("Servidor HTTP iniciado");
 }
 
 static const char PROGMEM INDEX_HTML[] = R"rawliteral(
