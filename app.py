@@ -10,9 +10,13 @@ from dotenv import load_dotenv
 
 # Configurar variables de entorno
 os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
+os.environ['PYTORCH_JIT'] = '0'  # Deshabilitar JIT para reducir memoria
+os.environ['MKL_NUM_THREADS'] = '1'  # Limitar threads de MKL
+os.environ['OMP_NUM_THREADS'] = '1'  # Limitar threads de OpenMP
 # Limitar el uso de memoria de PyTorch
 torch.cuda.empty_cache()
 torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.enabled = False  # Deshabilitar cuDNN
 
 app = Flask(__name__)
 CORS(app)
