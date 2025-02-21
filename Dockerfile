@@ -15,11 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar la aplicación y el modelo
 COPY . .
 
-# Descargar modelo YOLOv8n (si no está incluido en el repo)
-RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
+# Descargar y configurar modelo YOLOv8n-custom
+RUN python -c "from ultralytics import YOLO; model = YOLO('yolov8n.pt'); model.model.names = {0: 'person', 1: 'clock', 2: 'cat'}; model.export('custom_model.pt')"
 
 # Exponemos el puerto 10000
 EXPOSE 10000
 
-# Comando por defecto para ejecutar la aplicación
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "4", "app:app"]
+# Usar solo 1 worker para reducir uso de memoria
+CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "--threads", "1", "--timeout", "30", "--max-requests", "100", "--max-requests-jitter", "10", "app:app"]

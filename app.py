@@ -8,25 +8,35 @@ import torch
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Configurar variables de entorno para OpenCV
+# Configurar variables de entorno
 os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
-
-# Configurar PyTorch para permitir la carga segura del modelo
-torch.serialization.add_safe_globals(['ultralytics.nn.tasks.DetectionModel'])
+# Limitar el uso de memoria de PyTorch
+torch.cuda.empty_cache()
+torch.backends.cudnn.benchmark = False
 
 app = Flask(__name__)
 CORS(app)
 
+# Definir las clases que queremos detectar
+CLASSES = {
+    0: 'person',
+    1: 'clock',
+    2: 'cat'
+}
+
+# Cargar modelo de forma más eficiente
 try:
     from ultralytics import YOLO
-    # Cargar el modelo YOLOv8 con configuración específica
-    model = YOLO('yolov8n.pt', task='detect')
-    model.conf = 0.5  # Umbral de confianza
+    model = YOLO('custom_model.pt', task='detect')
+    # Configurar para menor uso de memoria
+    model.conf = 0.6  # Umbral de confianza
     model.iou = 0.5   # Umbral IOU
+    model.max_det = 5 # Máximo 5 detecciones
     
-    # Forzar la carga del modelo con weights_only=False
-    if not hasattr(model, 'model'):
-        model.model = torch.load('yolov8n.pt', weights_only=False)
+    # Forzar modo CPU y optimizaciones de memoria
+    model.to('cpu')
+    torch.set_num_threads(1)
+    
 except Exception as e:
     print(f"Error al cargar YOLO: {e}")
     sys.exit(1)
@@ -50,27 +60,26 @@ def detect_objects():
         if img is None:
             return jsonify({'status': 'error', 'message': 'No se pudo decodificar la imagen'}), 400
         
-        # Reducir resolución para procesamiento más rápido pero mantener aspecto
-        scale_percent = 50 # porcentaje del tamaño original
+        # Reducir resolución
+        scale_percent = 30
         width = int(img.shape[1] * scale_percent / 100)
         height = int(img.shape[0] * scale_percent / 100)
-        dim = (width, height)
-        img_resized = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+        img_resized = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
         
-        # Realizar la detección en la imagen reducida
-        results = model(img_resized, verbose=False)  # Desactivar verbose para mayor velocidad
+        # Liberar memoria
+        del img
+        torch.cuda.empty_cache()
+        
+        # Realizar detección solo de las clases especificadas
+        results = model(img_resized, verbose=False)
         result = results[0]
         
-        # Cache para evitar detecciones repetidas
-        current_detections = set()
         detections = []
-        
         if result.boxes:
             for box in result.boxes:
-                if box.conf[0] > 0.4:  # Aumentar umbral para reducir falsos positivos
-                    class_name = result.names[int(box.cls[0])]
-                    
-                    # Escalar coordenadas de vuelta al tamaño original
+                class_id = int(box.cls[0])
+                if class_id in CLASSES and box.conf[0] > 0.6:
+                    class_name = CLASSES[class_id]
                     xyxy = box.xyxy[0].tolist()
                     xyxy = [
                         xyxy[0] * (100/scale_percent),
@@ -78,21 +87,20 @@ def detect_objects():
                         xyxy[2] * (100/scale_percent),
                         xyxy[3] * (100/scale_percent)
                     ]
-                    
-                    # Solo agregar si es una detección nueva
-                    detection_key = f"{class_name}_{int(xyxy[0])}_{int(xyxy[1])}"
-                    if detection_key not in current_detections:
-                        current_detections.add(detection_key)
-                        detections.append({
-                            'class': class_name,
-                            'confidence': float(box.conf[0]),
-                            'bbox': xyxy
-                        })
+                    detections.append({
+                        'class': class_name,
+                        'confidence': float(box.conf[0]),
+                        'bbox': xyxy
+                    })
+        
+        # Liberar memoria
+        del results
+        del result
+        torch.cuda.empty_cache()
         
         return jsonify({
             'status': 'success',
-            'detections': detections,
-            'image_size': {'width': img.shape[1], 'height': img.shape[0]}
+            'detections': detections
         })
         
     except Exception as e:
@@ -149,7 +157,12 @@ def save_image():
         }), 500
 
 if __name__ == '__main__':
-    # Usar el puerto desde las variables de entorno
+    # Configurar Gunicorn para menor uso de memoria
     port = int(os.environ.get('PORT', 10000))
-    # Asegurarse de que el servidor esté accesible desde cualquier dirección IP
-    app.run(host='0.0.0.0', port=port, debug=False) 
+    app.run(
+        host='0.0.0.0', 
+        port=port,
+        debug=False,
+        threaded=False,  # Deshabilitar threading
+        processes=1      # Un solo proceso
+    ) 

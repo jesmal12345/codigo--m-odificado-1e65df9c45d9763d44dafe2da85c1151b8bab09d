@@ -812,7 +812,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         const formData = new FormData();
         formData.append('image', blob, 'image.jpg');
         
-        fetch('https://concrete-monkey-selected.ngrok-free.app/detect', {
+        fetch('https://codigo-m-odificado.onrender.com/detect', {
           method: 'POST',
           body: formData
         })
@@ -825,7 +825,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         .catch(error => {
           console.error('Error:', error);
         });
-      }, 'image/jpeg', 0.8); // Aumentar calidad
+      }, 'image/jpeg', 0.8);
     }
 
     function drawDetections(detections, scaleX, scaleY) {
@@ -895,13 +895,10 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
       
       // Código para manejar la detección del reloj
       if(clockDetected && (!window.lastActionTime || Date.now() - window.lastActionTime >= COOLDOWN_TIME)) {
-        window.lastActionTime = Date.now(); // Establecer tiempo de última acción
+        window.lastActionTime = Date.now();
         
-        // Secuencia de acciones
-        // 1. Activar flash
         fetch(location.origin+'/?flash=255;stop')
           .then(() => {
-            // 2. Capturar imagen
             return fetch(location.origin+'/?capture=1;stop');
           })
           .then(response => {
@@ -909,17 +906,14 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             return response.blob();
           })
           .then(blob => {
-            // Procesar la imagen capturada
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filename = `clock_detected_${timestamp}.jpg`;
             const formData = new FormData();
             formData.append('image', blob, filename);
             
-            // 3. Activar buzzer
             fetch(location.origin+'/?detectCount=clock=1;stop');
             
-            // Guardar la imagen
-            return fetch('https://concrete-monkey-selected.ngrok-free.app/save_image', {
+            return fetch('https://codigo-m-odificado.onrender.com/save_image', {
               method: 'POST',
               body: formData
             });
@@ -1063,7 +1057,6 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const filename = `captura_${timestamp}.jpg`;
           
-          // Crear link para descargar la imagen
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
@@ -1073,11 +1066,10 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           a.click();
           window.URL.revokeObjectURL(url);
           
-          // Enviar al servidor Python para guardar
           const formData = new FormData();
           formData.append('image', blob, filename);
           
-          return fetch('https://concrete-monkey-selected.ngrok-free.app/save_image', {
+          return fetch('https://codigo-m-odificado.onrender.com/save_image', {
             method: 'POST',
             body: formData
           });
