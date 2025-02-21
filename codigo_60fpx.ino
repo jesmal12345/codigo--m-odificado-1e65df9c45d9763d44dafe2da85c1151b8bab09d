@@ -812,7 +812,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
         const formData = new FormData();
         formData.append('image', blob, 'image.jpg');
         
-        fetch('https://optimal-stirring-viper.ngrok-free.app/detect', {
+        fetch('https://concrete-monkey-selected.ngrok-free.app/detect', {
           method: 'POST',
           body: formData
         })
@@ -919,7 +919,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
             fetch(location.origin+'/?detectCount=clock=1;stop');
             
             // Guardar la imagen
-            return fetch('https://optimal-stirring-viper.ngrok-free.app/save_image', {
+            return fetch('https://concrete-monkey-selected.ngrok-free.app/save_image', {
               method: 'POST',
               body: formData
             });
@@ -1077,7 +1077,7 @@ static const char PROGMEM INDEX_HTML[] = R"rawliteral(
           const formData = new FormData();
           formData.append('image', blob, filename);
           
-          return fetch('https://optimal-stirring-viper.ngrok-free.app/save_image', {
+          return fetch('https://concrete-monkey-selected.ngrok-free.app/save_image', {
             method: 'POST',
             body: formData
           });
